@@ -4,19 +4,30 @@ set -euo pipefail
 SCRIPT_DIR="$(cd -- "$(dirname -- "$0")" && pwd)"
 REPO_ROOT="$(cd -- "$SCRIPT_DIR/.." && pwd)"
 export PYTHONPATH="$REPO_ROOT/src${PYTHONPATH:+:$PYTHONPATH}"
+INDEX_PATH="${1:-}"
+
+if [[ -z "$INDEX_PATH" ]]; then
+  printf 'Usage: %s /path/to/index.scip\n' "$0" >&2
+  exit 1
+fi
+
+export CONTEXT_ENGINE_INDEX_PATH="$INDEX_PATH"
 
 python3 - <<'PY'
 import json
 import os
 import subprocess
+import sys
 import time
+
+index_path = os.environ["CONTEXT_ENGINE_INDEX_PATH"]
 
 cmd = [
     'python3',
     '-m',
     'context_engine.surfaces.mcp.server',
     '--index',
-    '/Users/ariel.rodriguez/recarga/repos/recarga-ts/index.scip',
+    index_path,
 ]
 
 start = time.time()

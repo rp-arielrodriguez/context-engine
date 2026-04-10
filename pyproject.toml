@@ -24,9 +24,9 @@ classifiers = [
 ]
 
 [project.urls]
-Homepage = "https://github.com/recargapay/context-engine"
-Repository = "https://github.com/recargapay/context-engine"
-Issues = "https://github.com/recargapay/context-engine/issues"
+Homepage = "https://github.com/rp-arielrodriguez/context-engine"
+Repository = "https://github.com/rp-arielrodriguez/context-engine"
+Issues = "https://github.com/rp-arielrodriguez/context-engine/issues"
 
 [project.scripts]
 context-engine = "context_engine.surfaces.cli.main:main"

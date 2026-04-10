@@ -31,7 +31,7 @@ context-engine --index "/path/to/index.scip" validate-fixture --fixture-id "shop
 Run the MCP measurement script:
 
 ```bash
-./scripts/measure-mcp.sh
+./scripts/measure-mcp.sh /path/to/index.scip
 ```
 
 ## Design Rules

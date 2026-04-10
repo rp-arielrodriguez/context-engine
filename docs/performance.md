@@ -2,7 +2,7 @@
 
 ## Current Baseline
 
-The main cost in the current prototype is startup and store loading.
+The main cost in the current implementation is startup and store loading.
 
 Observed behavior:
 
@@ -15,7 +15,7 @@ Observed behavior:
 Run the local measurement script:
 
 ```bash
-./scripts/measure-mcp.sh
+./scripts/measure-mcp.sh /path/to/index.scip
 ```
 
 Recent measured behavior in local validation:

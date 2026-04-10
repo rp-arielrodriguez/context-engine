@@ -1,6 +1,6 @@
 # Context Engine
 
-Local-first semantic code intelligence prototype backed by SCIP with Spring, Reactor, and Netty semantic layers.
+Local-first semantic code intelligence backed by SCIP with Spring, Reactor, and Netty semantic layers.
 
 Status: early alpha.
 
@@ -21,12 +21,6 @@ Status: early alpha.
 - `validate_fixture` (`shoppingcart-http-main`, `raf-loans-reactive`, `paymentlink-reactive-service`, `token-login-legacy`)
 
 ## Usage
-
-Base directory:
-
-```bash
-cd "/Users/ariel.rodriguez/recarga/repos/context-engine"
-```
 
 Preferred local setup:
 
@@ -51,7 +45,7 @@ python -m pip install -e '.[dev]'
 
 ```bash
 context-engine \
-  --index "/Users/ariel.rodriguez/recarga/repos/recarga-ts/index.scip" \
+  --index "/path/to/index.scip" \
   find-symbols --query "ShoppingCartController"
 ```
 
@@ -59,7 +53,7 @@ Get symbol details:
 
 ```bash
 context-engine \
-  --index "/Users/ariel.rodriguez/recarga/repos/recarga-ts/index.scip" \
+  --index "/path/to/index.scip" \
   get-symbol --symbol "semanticdb maven . . com/recargapay/shoppingcart/controllers/ShoppingCartController#"
 ```
 
@@ -67,7 +61,7 @@ Validate baseline fixture:
 
 ```bash
 context-engine \
-  --index "/Users/ariel.rodriguez/recarga/repos/recarga-ts/index.scip" \
+  --index "/path/to/index.scip" \
   validate-fixture --fixture-id "shoppingcart-http-main"
 ```
 
@@ -81,7 +75,7 @@ Get a mixed semantic flow from an HTTP handler method:
 
 ```bash
 context-engine \
-  --index "/Users/ariel.rodriguez/recarga/repos/recarga-ts/index.scip" \
+  --index "/path/to/index.scip" \
   get-mixed-flow --method-symbol "semanticdb maven . . com/recargapay/shoppingcart/controllers/ShoppingCartController#getShoppingCart()."
 ```
 
@@ -91,7 +85,7 @@ Run the minimal stdio MCP server:
 
 ```bash
 context-engine-mcp \
-  --index "/Users/ariel.rodriguez/recarga/repos/recarga-ts/index.scip"
+  --index "/path/to/index.scip"
 ```
 
 Initial MCP tools:
@@ -109,17 +103,17 @@ No-install fallback:
 If you do not want to create a local venv, you can run directly from source with `PYTHONPATH`:
 
 ```bash
-PYTHONPATH="/Users/ariel.rodriguez/recarga/repos/context-engine/src" \
+PYTHONPATH="src" \
 python3 -m context_engine.surfaces.mcp.server \
-  --index "/Users/ariel.rodriguez/recarga/repos/recarga-ts/index.scip"
+  --index "/path/to/index.scip"
 ```
 
 The same pattern works for the CLI:
 
 ```bash
-PYTHONPATH="/Users/ariel.rodriguez/recarga/repos/context-engine/src" \
+PYTHONPATH="src" \
 python3 -m context_engine.surfaces.cli.main \
-  --index "/Users/ariel.rodriguez/recarga/repos/recarga-ts/index.scip" \
+  --index "/path/to/index.scip" \
   validate-fixture --fixture-id "shoppingcart-http-main"
 ```
 
@@ -127,7 +121,7 @@ python3 -m context_engine.surfaces.cli.main \
 
 - Repeated CLI commands are still relatively slow because each new process must load the cached semantic store.
 - The long-lived MCP server is much faster after startup.
-- On the current prototype, startup is the main cost; individual tool calls are effectively near-instant once the server is running.
+- On the current implementation, startup is the main cost; individual tool calls are effectively near-instant once the server is running.
 
 Measure it locally:
 
@@ -137,7 +131,7 @@ Measure it locally:
 
 ## Notes
 
-- This prototype uses a tiny Java exporter to parse SCIP protobuf safely using the official `scip-java-proto` classes.
+- This project uses a tiny Java exporter to parse SCIP protobuf safely using the official `scip-java-proto` classes.
 - Export output is cached under `~/.cache/context-engine/`.
 - Runtime config belongs under `~/.config/context-engine/`.
 - No repository files are modified during query runs.
@@ -151,6 +145,12 @@ Measure it locally:
 - fixtures: `docs/fixtures.md`
 - performance notes: `docs/performance.md`
 - migration status: `docs/migration-map.md`
+
+## GitHub
+
+Intended repository URL:
+
+- `https://github.com/rp-arielrodriguez/context-engine`
 
 ## Contributing
 

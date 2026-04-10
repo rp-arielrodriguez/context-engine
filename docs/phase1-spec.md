@@ -343,9 +343,9 @@ Implement Chunk B with a minimal in-memory graph core and the first four raw que
 
 Then run `validate_fixture` for `shoppingcart-http-main` as the first gate.
 
-## Minimal MCP Surface (Current Prototype)
+## Minimal MCP Surface (Current Implementation)
 
-The current prototype exposes a dependency-free stdio MCP server with these tools:
+The current implementation exposes a dependency-free stdio MCP server with these tools:
 
 - `find_documents`
 - `find_symbols`
