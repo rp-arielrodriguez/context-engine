@@ -10,7 +10,7 @@ from ..runtime.paths import STORE_CACHE_DIR
 
 
 T = TypeVar("T")
-STORE_CACHE_VERSION = 3
+STORE_CACHE_VERSION = 4
 
 
 def _store_cache_file(ndjson_path: Path) -> Path:

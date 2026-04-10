@@ -88,6 +88,7 @@ class IndexStore:
         spring_edges = self._build_spring_edges()
         reactor_edges = self._build_reactor_edges(spring_edges)
         netty_edges = self._build_netty_edges(spring_edges, reactor_edges)
+        del self._source_cache
         self.semantic_edges = spring_edges + reactor_edges + netty_edges
         self.semantic_edges_by_source: dict[str, list[dict]] = {}
         self.semantic_edges_by_target: dict[str, list[dict]] = {}
