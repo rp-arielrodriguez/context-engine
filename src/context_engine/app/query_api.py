@@ -2,6 +2,8 @@ from __future__ import annotations
 
 from dataclasses import asdict
 
+from .store_helpers import neighbors, semantic_edge_sort_key
+
 
 def find_documents(store, query: str, limit: int = 20) -> list[dict]:
     q = query.lower()
@@ -84,6 +86,7 @@ def get_semantic_edges(
         allowed_types = set(type_filter)
         edges = [edge for edge in edges if edge.get("type") in allowed_types]
 
+    edges.sort(key=semantic_edge_sort_key)
     return edges[:limit]
 
 
@@ -100,7 +103,7 @@ def trace_semantic_path(store, start_symbol: str, max_depth: int = 2, limit: int
         if depth >= max_depth:
             continue
 
-        for nxt in store._neighbors(current):
+        for nxt in neighbors(store, current):
             if nxt in path:
                 continue
             new_path = path + [nxt]

@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from ...app.store_helpers import method_occurrences
+
 
 def build_reactor_edges(store, spring_edges: list[dict]) -> list[dict]:
     edges: list[dict] = []
@@ -16,7 +18,7 @@ def build_reactor_edges(store, spring_edges: list[dict]) -> list[dict]:
     ]
 
     for symbol in candidate_methods:
-        method_occs = store._method_occurrences(symbol.symbol)
+        method_occs = method_occurrences(store, symbol.symbol)
         if not method_occs:
             continue
 

@@ -27,7 +27,8 @@ For a more explicit startup breakdown, run:
 Recent measured behavior in local validation:
 
 - previous MCP initialize after startup: roughly 36 seconds on the larger real index used for recent profiling
-- current MCP initialize after the latest optimization pass: roughly 30 seconds on the same real index
+- intermediate MCP initialize after the first optimization pass: roughly 30 seconds on the same real index
+- current MCP initialize after the latest optimization pass: roughly 20 seconds on the same real index
 - `tools/list`: near-instant
 - `get_mixed_flow`: near-instant
 
@@ -40,13 +41,17 @@ Recent profile dimensions captured locally:
 Most recent local profile snapshot:
 
 - export/cache reuse: ~0.0s
-- store load from cache/build path: ~29.8s
-- representative semantic query: ~0.02s
+- store load from cache/build path: ~20.7s
+- representative semantic query: ~0.0s
 
 Additional local measurements after the latest optimization pass:
 
-- cached `load_or_build_store(...)`: ~6.5s to ~7.5s
-- MCP startup-to-initialize: improved from ~36.0s to ~30.4s
+- cached `load_or_build_store(...)`: recent runs observed in the ~11.9s to ~21.8s range depending on whether the cache file is already hot and whether the process is the first reader after regeneration
+- MCP startup-to-initialize: improved from ~36.0s to ~20.3s
+
+Important note:
+
+- the store cache writer now uses a per-process temporary file to avoid collisions during overlapping builds/writes
 
 ## Optimization Priority
 

@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from types import SimpleNamespace
 
-from context_engine.app.query_api import find_documents, get_semantic_edges
+from context_engine.app.query_api import find_documents, get_semantic_edges, trace_semantic_path
 from context_engine.core.models import DocumentRecord
 
 
@@ -36,3 +36,34 @@ def test_get_semantic_edges_filters_by_direction_and_type() -> None:
     assert result == [
         {"source": "node-a", "target": "node-b", "type": "spring.depends_on", "provenance": "spring-derived"}
     ]
+
+
+def test_get_semantic_edges_sorts_results_by_type_source_target() -> None:
+    store = SimpleNamespace(
+        semantic_edges_by_source={
+            "node-a": [
+                {"source": "node-a", "target": "node-c", "type": "reactor.flows_to", "provenance": "reactor-derived"},
+                {"source": "node-a", "target": "node-b", "type": "spring.depends_on", "provenance": "spring-derived"},
+            ]
+        },
+        semantic_edges_by_target={},
+    )
+
+    result = get_semantic_edges(store, "node-a", direction="out")
+
+    assert [edge["type"] for edge in result] == ["reactor.flows_to", "spring.depends_on"]
+
+
+def test_trace_semantic_path_uses_neighbors_to_expand_paths() -> None:
+    store = SimpleNamespace(
+        calls_out_by_symbol={
+            "a": {"b"},
+            "b": {"c"},
+        },
+        symbols_by_id={},
+    )
+
+    result = trace_semantic_path(store, "a", max_depth=2, limit=10)
+
+    assert result[0][0]["symbol"] == "a"
+    assert result[0][1]["symbol"] == "b"

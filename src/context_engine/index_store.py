@@ -71,10 +71,6 @@ class IndexStore:
             return f"{symbol}@@{document}"
         return symbol
 
-    @staticmethod
-    def _semantic_edge_sort_key(edge: dict) -> tuple[str, str, str]:
-        return edge["type"], edge["source"], edge["target"]
-
     def __init__(
         self,
         metadata: IndexMetadata,
@@ -98,10 +94,6 @@ class IndexStore:
         for edge in self.semantic_edges:
             self.semantic_edges_by_source.setdefault(edge["source"], []).append(edge)
             self.semantic_edges_by_target.setdefault(edge["target"], []).append(edge)
-        for edges in self.semantic_edges_by_source.values():
-            edges.sort(key=self._semantic_edge_sort_key)
-        for edges in self.semantic_edges_by_target.values():
-            edges.sort(key=self._semantic_edge_sort_key)
 
     def _infer_caller_by_position(self, occurrence: OccurrenceRecord) -> str | None:
         return infer_caller_by_position(self, occurrence)
@@ -111,10 +103,6 @@ class IndexStore:
 
     def _read_source(self, document: str) -> str:
         return read_source(self, document)
-
-    def _method_occurrences(self, method_symbol: str) -> list[OccurrenceRecord]:
-        occs = self.occurrences_by_caller.get(method_symbol, [])
-        return sorted(occs, key=lambda o: (o.range, o.symbol))
 
     def _build_spring_edges(self) -> list[dict]:
         return build_spring_edges(self)
@@ -164,9 +152,6 @@ class IndexStore:
 
     def get_mixed_flow(self, method_symbol: str) -> dict:
         return get_mixed_flow_with_store(self, method_symbol)
-
-    def _neighbors(self, symbol_id: str) -> list[str]:
-        return sorted(self.calls_out_by_symbol.get(symbol_id, set()))
 
     def trace_semantic_path(self, start_symbol: str, max_depth: int = 2, limit: int = 25) -> list[list[dict]]:
         return trace_semantic_path_with_store(self, start_symbol, max_depth=max_depth, limit=limit)

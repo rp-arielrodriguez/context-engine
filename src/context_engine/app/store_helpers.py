@@ -20,3 +20,16 @@ def definitions_by_document(store, document: str) -> dict[str, object]:
         if defs:
             out[symbol] = defs[0]
     return out
+
+
+def method_occurrences(store, method_symbol: str) -> list[object]:
+    occurrences = store.occurrences_by_caller.get(method_symbol, [])
+    return sorted(occurrences, key=lambda occurrence: (occurrence.range, occurrence.symbol))
+
+
+def neighbors(store, symbol_id: str) -> list[str]:
+    return sorted(store.calls_out_by_symbol.get(symbol_id, set()))
+
+
+def semantic_edge_sort_key(edge: dict) -> tuple[str, str, str]:
+    return edge["type"], edge["source"], edge["target"]
