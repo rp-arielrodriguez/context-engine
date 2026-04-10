@@ -7,11 +7,8 @@ def populate_store_indexes(store) -> None:
     store.occurrences_by_document = {}
     store._source_cache = {}
 
-    store.symbols_by_display = {}
     store.symbols_by_document = {}
     for symbol in store.symbols:
-        key = symbol.display_name.lower()
-        store.symbols_by_display.setdefault(key, []).append(symbol)
         store.symbols_by_document.setdefault(symbol.document, []).append(symbol)
 
     store.occurrences_by_symbol = {}

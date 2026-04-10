@@ -84,7 +84,6 @@ def get_semantic_edges(
         allowed_types = set(type_filter)
         edges = [edge for edge in edges if edge.get("type") in allowed_types]
 
-    edges = sorted(edges, key=lambda edge: (edge["type"], edge["source"], edge["target"]))
     return edges[:limit]
 
 

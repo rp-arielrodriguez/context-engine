@@ -27,8 +27,8 @@ class OccurrenceRecord:
     enclosing_symbol: str
     kind: str
     document: str
-    range: list[int]
-    enclosing_range: list[int]
+    range: tuple[int, ...]
+    enclosing_range: tuple[int, ...]
     symbol_roles: int
     is_definition: bool
     is_import: bool

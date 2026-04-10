@@ -133,6 +133,7 @@ python3 -m context_engine.surfaces.cli.main \
 - Repeated CLI commands are still relatively slow because each new process must load the cached semantic store.
 - The long-lived MCP server is much faster after startup.
 - On the current implementation, startup is the main cost; individual tool calls are effectively near-instant once the server is running.
+- Recent optimization work improved cold MCP startup on the profiled real index from roughly 36s to roughly 30s, but store load/build remains the dominant bottleneck.
 
 Measure it locally:
 

@@ -71,6 +71,10 @@ class IndexStore:
             return f"{symbol}@@{document}"
         return symbol
 
+    @staticmethod
+    def _semantic_edge_sort_key(edge: dict) -> tuple[str, str, str]:
+        return edge["type"], edge["source"], edge["target"]
+
     def __init__(
         self,
         metadata: IndexMetadata,
@@ -94,6 +98,10 @@ class IndexStore:
         for edge in self.semantic_edges:
             self.semantic_edges_by_source.setdefault(edge["source"], []).append(edge)
             self.semantic_edges_by_target.setdefault(edge["target"], []).append(edge)
+        for edges in self.semantic_edges_by_source.values():
+            edges.sort(key=self._semantic_edge_sort_key)
+        for edges in self.semantic_edges_by_target.values():
+            edges.sort(key=self._semantic_edge_sort_key)
 
     def _infer_caller_by_position(self, occurrence: OccurrenceRecord) -> str | None:
         return infer_caller_by_position(self, occurrence)
