@@ -2,8 +2,8 @@ from __future__ import annotations
 
 from types import SimpleNamespace
 
-from context_engine.app.query_api import find_documents, get_semantic_edges, trace_semantic_path
-from context_engine.core.models import DocumentRecord
+from context_engine.app.query_api import find_documents, find_symbols, get_semantic_edges, trace_semantic_path
+from context_engine.core.models import DocumentRecord, SymbolRecord
 
 
 def test_find_documents_filters_by_path_substring() -> None:
@@ -18,6 +18,31 @@ def test_find_documents_filters_by_path_substring() -> None:
 
     assert len(result) == 1
     assert result[0]["path"] == "src/Foo.java"
+
+
+def test_find_symbols_uses_precomputed_search_rows_and_path_filter() -> None:
+    symbol_a = SymbolRecord(
+        symbol="semanticdb Foo",
+        display_name="ShoppingCartController",
+        enclosing_symbol="",
+        kind="Class",
+        document="src/a/Foo.java",
+    )
+    symbol_b = SymbolRecord(
+        symbol="semanticdb Bar",
+        display_name="ShoppingCartService",
+        enclosing_symbol="",
+        kind="Class",
+        document="src/b/Bar.java",
+    )
+    store = SimpleNamespace(
+        symbols=[symbol_a, symbol_b]
+    )
+
+    result = find_symbols(store, "shoppingcart", path_filter="src/a")
+
+    assert len(result) == 1
+    assert result[0]["display_name"] == "ShoppingCartController"
 
 
 def test_get_semantic_edges_filters_by_direction_and_type() -> None:

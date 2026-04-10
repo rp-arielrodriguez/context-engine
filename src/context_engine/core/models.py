@@ -3,7 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 
-@dataclass(frozen=True, slots=True)
+@dataclass(frozen=True)
 class DocumentRecord:
     path: str
     language: str
@@ -11,7 +11,7 @@ class DocumentRecord:
     occurrences_count: int
 
 
-@dataclass(frozen=True, slots=True)
+@dataclass(frozen=True)
 class SymbolRecord:
     symbol: str
     display_name: str
@@ -20,7 +20,7 @@ class SymbolRecord:
     document: str
 
 
-@dataclass(frozen=True, slots=True)
+@dataclass(frozen=True)
 class OccurrenceRecord:
     symbol: str
     display_name: str
@@ -39,7 +39,7 @@ class OccurrenceRecord:
     is_forward_definition: bool
 
 
-@dataclass(frozen=True, slots=True)
+@dataclass(frozen=True)
 class IndexMetadata:
     project_root: str
     tool_name: str

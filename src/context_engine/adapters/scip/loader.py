@@ -58,17 +58,17 @@ def load_records_from_ndjson(ndjson_path: Path, normalize_symbol) -> tuple[Index
                 enclosing_raw = row.get("enclosing_symbol", "")
                 enclosing_symbol = normalize_symbol(enclosing_raw, document) if enclosing_raw else ""
                 occurrences.append(
-                        OccurrenceRecord(
-                            symbol=symbol,
-                            display_name=row.get("display_name", ""),
-                            enclosing_symbol=enclosing_symbol,
-                            kind=row.get("kind", ""),
-                            document=document,
-                            range=tuple(int(x) for x in row.get("range", [])),
-                            enclosing_range=tuple(int(x) for x in row.get("enclosing_range", [])),
-                            symbol_roles=int(row.get("symbol_roles", 0)),
-                            is_definition=bool(roles.get("definition", False)),
-                            is_import=bool(roles.get("import", False)),
+                    OccurrenceRecord(
+                        symbol=symbol,
+                        display_name=row.get("display_name", ""),
+                        enclosing_symbol=enclosing_symbol,
+                        kind=row.get("kind", ""),
+                        document=document,
+                        range=tuple(int(x) for x in row.get("range", [])),
+                        enclosing_range=tuple(int(x) for x in row.get("enclosing_range", [])),
+                        symbol_roles=int(row.get("symbol_roles", 0)),
+                        is_definition=bool(roles.get("definition", False)),
+                        is_import=bool(roles.get("import", False)),
                         is_write=bool(roles.get("write", False)),
                         is_read=bool(roles.get("read", False)),
                         is_generated=bool(roles.get("generated", False)),
