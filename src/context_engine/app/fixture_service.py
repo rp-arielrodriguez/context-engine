@@ -6,6 +6,19 @@ from .flow_helpers import has_operator
 MONO_SYMBOL = "semanticdb maven . . reactor/core/publisher/Mono#"
 
 
+def _fixture_context(store, document: str) -> dict:
+    cache = getattr(store, "_fixture_context_cache", None)
+    if cache is None:
+        cache = {}
+        store._fixture_context_cache = cache
+    if document not in cache:
+        cache[document] = {
+            "document_present": document in store.documents_by_path,
+            "mono_references": [reference for reference in store.references_by_symbol.get(MONO_SYMBOL, []) if reference.document == document],
+        }
+    return cache[document]
+
+
 def validate_fixture(store, fixture_id: str) -> dict:
     if fixture_id == "shoppingcart-http-main":
         controller_doc = "src/com/recargapay/shoppingcart/controllers/ShoppingCartController.java"
@@ -18,9 +31,10 @@ def validate_fixture(store, fixture_id: str) -> dict:
             "semanticdb maven . . com/recargapay/shoppingcart/controllers/"
             "ShoppingCartController#shoppingCartService."
         )
-        has_doc = controller_doc in store.documents_by_path
+        context = _fixture_context(store, controller_doc)
+        has_doc = context["document_present"]
         has_method = method_symbol in store.symbols_by_id
-        refs_to_mono = [r for r in store.references_by_symbol.get(MONO_SYMBOL, []) if r.document == controller_doc]
+        refs_to_mono = context["mono_references"]
         method_calls_out = sorted(store.calls_out_by_symbol.get(method_symbol, set()))
         return_stage = f"reactorstage:return:{method_symbol}"
 
@@ -64,10 +78,11 @@ def validate_fixture(store, fixture_id: str) -> dict:
             "BffLoansAuthorizationsController#requestInfoService."
         )
         return_stage = f"reactorstage:return:{method_symbol}"
-        refs_to_mono = [r for r in store.references_by_symbol.get(MONO_SYMBOL, []) if r.document == controller_doc]
+        context = _fixture_context(store, controller_doc)
+        refs_to_mono = context["mono_references"]
 
         checks = {
-            "document_present": controller_doc in store.documents_by_path,
+            "document_present": context["document_present"],
             "method_symbol_present": method_symbol in store.symbols_by_id,
             "spring_component_declares": len(store.get_semantic_edges(class_symbol, direction="out", type_filter=["spring.component_declares"])) > 0,
             "spring_endpoint_maps_to": len(store.get_semantic_edges(method_symbol, direction="in", type_filter=["spring.endpoint_maps_to"])) > 0,
@@ -106,10 +121,11 @@ def validate_fixture(store, fixture_id: str) -> dict:
             "BffPaymentLinkServiceImpl#createPaymentLinkFromPaymentApi()."
         )
         return_stage = f"reactorstage:return:{method_symbol}"
-        refs_to_mono = [r for r in store.references_by_symbol.get(MONO_SYMBOL, []) if r.document == service_doc]
+        context = _fixture_context(store, service_doc)
+        refs_to_mono = context["mono_references"]
 
         checks = {
-            "document_present": service_doc in store.documents_by_path,
+            "document_present": context["document_present"],
             "class_symbol_present": class_symbol in store.symbols_by_id,
             "method_symbol_present": method_symbol in store.symbols_by_id,
             "spring_component_declares": len(store.get_semantic_edges(class_symbol, direction="out", type_filter=["spring.component_declares"])) > 0,
@@ -134,8 +150,9 @@ def validate_fixture(store, fixture_id: str) -> dict:
 
     if fixture_id == "token-login-legacy":
         token_doc = "src/com/si/cloncom/ts/rest/api/TokenEndpoint.java"
+        context = _fixture_context(store, token_doc)
         checks = {
-            "document_present": token_doc in store.documents_by_path,
+            "document_present": context["document_present"],
         }
         return {
             "fixture_id": fixture_id,
