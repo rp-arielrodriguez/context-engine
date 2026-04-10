@@ -140,6 +140,12 @@ Measure it locally:
 ./scripts/measure-mcp.sh /path/to/index.scip
 ```
 
+Profile startup buckets locally:
+
+```bash
+./scripts/profile-startup.sh /path/to/index.scip
+```
+
 ## Roadmap
 
 1. Stabilize raw SCIP loading and MCP ergonomics.
@@ -162,6 +168,7 @@ Measure it locally:
 - architecture boundaries: `docs/architecture.md`
 - phase 1 scope: `docs/phase1-spec.md`
 - fixtures: `docs/fixtures.md`
+- semantic contracts: `docs/semantic-contracts.md`
 - performance notes: `docs/performance.md`
 - migration status: `docs/migration-map.md`
 

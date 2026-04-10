@@ -40,6 +40,12 @@ Run the MCP measurement script:
 ./scripts/measure-mcp.sh /path/to/index.scip
 ```
 
+Profile startup costs:
+
+```bash
+./scripts/profile-startup.sh /path/to/index.scip
+```
+
 ## Design Rules
 
 - Preserve the `core/ -> app/ -> surfaces/` and `adapters/ -> core` boundary rules documented in `docs/architecture.md`.

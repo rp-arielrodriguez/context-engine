@@ -1,5 +1,7 @@
 # Fixtures
 
+For the semantic edge contract itself, see `docs/semantic-contracts.md`.
+
 The current semantic acceptance fixtures are:
 
 - `shoppingcart-http-main`

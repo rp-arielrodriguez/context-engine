@@ -18,11 +18,23 @@ Run the local measurement script:
 ./scripts/measure-mcp.sh /path/to/index.scip
 ```
 
+For a more explicit startup breakdown, run:
+
+```bash
+./scripts/profile-startup.sh /path/to/index.scip
+```
+
 Recent measured behavior in local validation:
 
 - initialize after startup: roughly 10 to 11 seconds
 - `tools/list`: near-instant
 - `get_mixed_flow`: near-instant
+
+Recent profile dimensions captured locally:
+
+- SCIP export/cache reuse time
+- store load/build time
+- representative semantic query time
 
 ## Optimization Priority
 
@@ -33,3 +45,11 @@ Optimize in this order:
 3. long-lived MCP runtime behavior
 
 Do not distort the semantic query contract just to optimize CLI cold start.
+
+## Current Direction
+
+Prefer improvements in this order:
+
+1. reuse cached exports and store state well
+2. reduce store build/load overhead
+3. keep MCP long-lived so repeated queries avoid cold-start costs

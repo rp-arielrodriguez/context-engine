@@ -25,3 +25,7 @@ jobs:
 
       - name: Run tests
         run: pytest
+
+      - name: Run optional real-index integration tests
+        if: ${{ env.CONTEXT_ENGINE_TEST_INDEX != '' }}
+        run: pytest tests/test_integration_real_index.py

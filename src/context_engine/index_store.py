@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 from pathlib import Path
-from urllib.parse import unquote, urlparse
 
 from .app.fixture_service import validate_fixture as validate_fixture_with_store
 from .app.mixed_flow_service import get_mixed_flow as get_mixed_flow_with_store
@@ -14,8 +13,10 @@ from .app.query_api import (
     get_symbol as get_symbol_with_store,
     trace_semantic_path as trace_semantic_path_with_store,
 )
+from .app.store_helpers import definitions_by_document, infer_caller_by_position
 from .adapters.scip.loader import load_records_from_ndjson
 from .adapters.scip.index_builder import build_call_graph, populate_store_indexes
+from .adapters.runtime.source_reader import read_source
 from .adapters.semantics.netty import build_netty_edges
 from .adapters.semantics.reactor import build_reactor_edges
 from .adapters.semantics.spring import build_spring_edges
@@ -95,47 +96,13 @@ class IndexStore:
             self.semantic_edges_by_target.setdefault(edge["target"], []).append(edge)
 
     def _infer_caller_by_position(self, occurrence: OccurrenceRecord) -> str | None:
-        pos = self._normalize_range(occurrence.range)
-        if not pos:
-            return None
-        line, col = pos[0], pos[1]
-        scopes = self.method_scopes_by_doc.get(occurrence.document, [])
-        for scope, symbol in scopes:
-            if self._contains(scope, line, col):
-                return symbol
-        return None
+        return infer_caller_by_position(self, occurrence)
 
     def _definitions_by_document(self, document: str) -> dict[str, OccurrenceRecord]:
-        out: dict[str, OccurrenceRecord] = {}
-        for symbol in [s.symbol for s in self.symbols_by_document.get(document, [])]:
-            defs = self.definitions_by_symbol.get(symbol, [])
-            if defs:
-                out[symbol] = defs[0]
-        return out
-
-    def _project_root_path(self) -> Path | None:
-        root = self.metadata.project_root or ""
-        if not root:
-            return None
-        if root.startswith("file://"):
-            parsed = urlparse(root)
-            return Path(unquote(parsed.path))
-        return Path(root)
+        return definitions_by_document(self, document)
 
     def _read_source(self, document: str) -> str:
-        if document in self._source_cache:
-            return self._source_cache[document]
-        root = self._project_root_path()
-        if root is None:
-            self._source_cache[document] = ""
-            return ""
-        path = root / document
-        try:
-            text = path.read_text(encoding="utf-8")
-        except Exception:
-            text = ""
-        self._source_cache[document] = text
-        return text
+        return read_source(self, document)
 
     def _method_occurrences(self, method_symbol: str) -> list[OccurrenceRecord]:
         occs = self.occurrences_by_caller.get(method_symbol, [])
