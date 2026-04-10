@@ -1,5 +1,8 @@
 # Context Engine
 
+[![CI](https://github.com/rp-arielrodriguez/context-engine/actions/workflows/ci.yml/badge.svg)](https://github.com/rp-arielrodriguez/context-engine/actions/workflows/ci.yml)
+[![License](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](LICENSE)
+
 Local-first semantic code intelligence backed by SCIP with Spring, Reactor, and Netty semantic layers.
 
 Status: early alpha.
@@ -22,6 +25,8 @@ Status: early alpha.
 
 ## Usage
 
+## Quickstart
+
 Preferred local setup:
 
 ```bash
@@ -39,6 +44,12 @@ Install test dependencies too:
 
 ```bash
 python -m pip install -e '.[dev]'
+```
+
+Optional real-index integration checks:
+
+```bash
+CONTEXT_ENGINE_TEST_INDEX="/path/to/index.scip" pytest
 ```
 
 ## CLI Usage
@@ -126,8 +137,16 @@ python3 -m context_engine.surfaces.cli.main \
 Measure it locally:
 
 ```bash
-./scripts/measure-mcp.sh
+./scripts/measure-mcp.sh /path/to/index.scip
 ```
+
+## Roadmap
+
+1. Stabilize raw SCIP loading and MCP ergonomics.
+2. Strengthen Spring semantic coverage and tests.
+3. Deepen Reactor/WebFlux and Netty runtime semantics.
+4. Improve startup and cache performance for long-lived MCP usage.
+5. Add search and ranking improvements on top of the semantic graph.
 
 ## Notes
 
@@ -148,9 +167,7 @@ Measure it locally:
 
 ## GitHub
 
-Intended repository URL:
-
-- `https://github.com/rp-arielrodriguez/context-engine`
+- repository: `https://github.com/rp-arielrodriguez/context-engine`
 
 ## Contributing
 

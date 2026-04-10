@@ -22,6 +22,12 @@ Run tests:
 pytest
 ```
 
+Run optional real-index integration coverage:
+
+```bash
+CONTEXT_ENGINE_TEST_INDEX="/path/to/index.scip" pytest tests/test_integration_real_index.py
+```
+
 Run a CLI smoke check against a real SCIP index:
 
 ```bash
