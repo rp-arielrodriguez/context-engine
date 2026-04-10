@@ -187,103 +187,6 @@ class IndexStore:
             limit=limit,
         )
 
-    def _summarize_node(self, node_id: str) -> dict:
-        sym = self.symbols_by_id.get(node_id)
-        if sym is not None:
-            return {
-                "id": node_id,
-                "kind": sym.kind,
-                "display_name": sym.display_name,
-                "document": sym.document,
-            }
-        if node_id.startswith("http_entrypoint:"):
-            parts = node_id.split(":", 3)
-            return {
-                "id": node_id,
-                "kind": "http_entrypoint",
-                "document": parts[1] if len(parts) > 1 else "",
-                "display_name": parts[2] if len(parts) > 2 else node_id,
-            }
-        if node_id.startswith("reactorstage:"):
-            return {
-                "id": node_id,
-                "kind": "reactive_stage",
-                "display_name": node_id,
-                "document": "",
-            }
-        if node_id.startswith("springbean:"):
-            return {
-                "id": node_id,
-                "kind": "spring_bean",
-                "display_name": node_id,
-                "document": "",
-            }
-        if node_id.startswith("netty:"):
-            return {
-                "id": node_id,
-                "kind": "netty_component",
-                "display_name": node_id,
-                "document": "",
-            }
-        return {"id": node_id, "kind": "unknown", "display_name": node_id, "document": ""}
-
-    def _class_symbol_for_method(self, method_symbol: str) -> str | None:
-        method = self.symbols_by_id.get(method_symbol)
-        if method is None:
-            return None
-        classes = [s for s in self.symbols_by_document.get(method.document, []) if s.kind == "Class"]
-        return classes[0].symbol if classes else None
-
-    def _field_injections_for_class(self, class_symbol: str) -> list[dict]:
-        class_node = self.symbols_by_id.get(class_symbol)
-        if class_node is None:
-            return []
-        fields = [
-            s
-            for s in self.symbols_by_document.get(class_node.document, [])
-            if s.kind == "Field" and self.get_semantic_edges(s.symbol, direction="out", type_filter=["spring.injects"])
-        ]
-        out = []
-        for field in fields:
-            edges = self.get_semantic_edges(field.symbol, direction="out", type_filter=["spring.injects"], limit=100)
-            out.append(
-                {
-                    "field": self._summarize_node(field.symbol),
-                    "injects": edges,
-                }
-            )
-        return out
-
-    def _reactor_chain(self, return_stage: str) -> list[dict]:
-        seen: set[str] = set()
-        queue = [return_stage]
-        stages: dict[str, dict] = {}
-        allowed = {"reactor.operator_applies", "reactor.flows_to", "reactor.error_fallback_to"}
-
-        while queue:
-            node = queue.pop(0)
-            if node in seen:
-                continue
-            seen.add(node)
-            for edge in self.get_semantic_edges(node, direction="out", type_filter=list(allowed), limit=500):
-                target = edge["target"]
-                metadata = edge.get("metadata", {})
-                if target.startswith("reactorstage:"):
-                    stages[target] = {
-                        "node": self._summarize_node(target),
-                        "via": edge["type"],
-                        "operator": metadata.get("operator", ""),
-                        "range": metadata.get("range", []),
-                    }
-                    if target not in seen:
-                        queue.append(target)
-
-        def sort_key(item: dict) -> tuple:
-            rng = item.get("range") or []
-            return (rng[0], rng[1]) if len(rng) >= 2 else (999999, 999999)
-
-        return sorted(stages.values(), key=sort_key)
-
     def get_mixed_flow(self, method_symbol: str) -> dict:
         return get_mixed_flow_with_store(self, method_symbol)
 
@@ -292,27 +195,6 @@ class IndexStore:
 
     def trace_semantic_path(self, start_symbol: str, max_depth: int = 2, limit: int = 25) -> list[list[dict]]:
         return trace_semantic_path_with_store(self, start_symbol, max_depth=max_depth, limit=limit)
-
-    def _has_operator(self, return_stage: str, operator_name: str) -> bool:
-        seen: set[str] = set()
-        queue = [return_stage]
-        allowed_types = {"reactor.operator_applies", "reactor.flows_to", "reactor.error_fallback_to"}
-
-        while queue:
-            node = queue.pop(0)
-            if node in seen:
-                continue
-            seen.add(node)
-
-            edges = self.get_semantic_edges(node, direction="out", type_filter=list(allowed_types), limit=500)
-            for edge in edges:
-                if edge.get("metadata", {}).get("operator") == operator_name:
-                    return True
-                target = edge.get("target")
-                if target and target not in seen:
-                    queue.append(target)
-
-        return False
 
     def validate_fixture(self, fixture_id: str) -> dict:
         return validate_fixture_with_store(self, fixture_id)

@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from .flow_helpers import has_operator
+
 
 MONO_SYMBOL = "semanticdb maven . . reactor/core/publisher/Mono#"
 
@@ -73,9 +75,9 @@ def validate_fixture(store, fixture_id: str) -> dict:
             "spring_injects_resolved": len(store.get_semantic_edges(field_symbol, direction="out", type_filter=["spring.injects"])) > 0,
             "mono_reference_in_controller": len(refs_to_mono) > 0,
             "reactor_returns_publisher": len(store.get_semantic_edges(method_symbol, direction="out", type_filter=["reactor.returns_publisher"])) > 0,
-            "reactor_just_or_empty": store._has_operator(return_stage, "justOrEmpty"),
-            "reactor_map": store._has_operator(return_stage, "map"),
-            "reactor_default_if_empty": store._has_operator(return_stage, "defaultIfEmpty"),
+            "reactor_just_or_empty": has_operator(store, return_stage, "justOrEmpty"),
+            "reactor_map": has_operator(store, return_stage, "map"),
+            "reactor_default_if_empty": has_operator(store, return_stage, "defaultIfEmpty"),
             "netty_runtime_boundary": len(store.get_semantic_edges(return_stage, direction="out", type_filter=["netty.runtime_boundary"])) > 0,
         }
 
@@ -115,9 +117,9 @@ def validate_fixture(store, fixture_id: str) -> dict:
             "spring_injects_resolved": len(store.get_semantic_edges(field_symbol, direction="out", type_filter=["spring.injects"])) > 0,
             "mono_reference_in_service": len(refs_to_mono) > 0,
             "reactor_returns_publisher": len(store.get_semantic_edges(method_symbol, direction="out", type_filter=["reactor.returns_publisher"])) > 0,
-            "reactor_from_callable": store._has_operator(return_stage, "fromCallable"),
-            "reactor_do_on_error": store._has_operator(return_stage, "doOnError"),
-            "reactor_on_error_map": store._has_operator(return_stage, "onErrorMap"),
+            "reactor_from_callable": has_operator(store, return_stage, "fromCallable"),
+            "reactor_do_on_error": has_operator(store, return_stage, "doOnError"),
+            "reactor_on_error_map": has_operator(store, return_stage, "onErrorMap"),
         }
 
         return {

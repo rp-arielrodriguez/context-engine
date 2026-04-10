@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from .flow_helpers import class_symbol_for_method, field_injections_for_class, reactor_chain, summarize_node
+
 
 def get_mixed_flow(store, method_symbol: str) -> dict:
     method = store.symbols_by_id.get(method_symbol)
@@ -12,8 +14,8 @@ def get_mixed_flow(store, method_symbol: str) -> dict:
         type_filter=["spring.endpoint_maps_to"],
         limit=50,
     )
-    class_symbol = store._class_symbol_for_method(method_symbol)
-    class_summary = store._summarize_node(class_symbol) if class_symbol else None
+    class_symbol = class_symbol_for_method(store, method_symbol)
+    class_summary = summarize_node(store, class_symbol) if class_symbol else None
     class_component_edges = (
         store.get_semantic_edges(class_symbol, direction="out", type_filter=["spring.component_declares"], limit=50)
         if class_symbol
@@ -24,7 +26,7 @@ def get_mixed_flow(store, method_symbol: str) -> dict:
         if class_symbol
         else []
     )
-    field_injections = store._field_injections_for_class(class_symbol) if class_symbol else []
+    field_injections = field_injections_for_class(store, class_symbol) if class_symbol else []
 
     return_edges = store.get_semantic_edges(
         method_symbol,
@@ -33,7 +35,7 @@ def get_mixed_flow(store, method_symbol: str) -> dict:
         limit=10,
     )
     return_stage = return_edges[0]["target"] if return_edges else ""
-    reactor_chain = store._reactor_chain(return_stage) if return_stage else []
+    operator_chain = reactor_chain(store, return_stage) if return_stage else []
     netty_edges = (
         store.get_semantic_edges(
             return_stage,
@@ -47,7 +49,7 @@ def get_mixed_flow(store, method_symbol: str) -> dict:
 
     return {
         "entrypoint": {
-            "method": store._summarize_node(method_symbol),
+            "method": summarize_node(store, method_symbol),
             "http_mappings": http_edges,
         },
         "spring": {
@@ -57,9 +59,9 @@ def get_mixed_flow(store, method_symbol: str) -> dict:
             "depends_on": class_dependency_edges,
         },
         "reactor": {
-            "return_stage": store._summarize_node(return_stage) if return_stage else None,
+            "return_stage": summarize_node(store, return_stage) if return_stage else None,
             "returns_publisher": return_edges,
-            "operator_chain": reactor_chain,
+            "operator_chain": operator_chain,
         },
         "netty": {
             "runtime_boundaries": netty_edges,
