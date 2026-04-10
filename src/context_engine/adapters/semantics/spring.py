@@ -1,6 +1,43 @@
 from __future__ import annotations
 
 
+def _dedupe_candidates(candidates: list[dict]) -> list[dict]:
+    seen: set[str] = set()
+    out: list[dict] = []
+    for candidate in candidates:
+        bean_id = candidate["bean_id"]
+        if bean_id in seen:
+            continue
+        seen.add(bean_id)
+        out.append(candidate)
+    return out
+
+
+def _prefer_candidates(candidates: list[dict], *, bean_name_hint: str | None = None) -> list[dict]:
+    candidates = _dedupe_candidates(candidates)
+    if len(candidates) <= 1:
+        return candidates
+
+    if bean_name_hint:
+        exact = [candidate for candidate in candidates if candidate["bean_name"] == bean_name_hint]
+        if exact:
+            return exact
+
+        suffix_matches = [candidate for candidate in candidates if candidate["bean_name"].lower().endswith(bean_name_hint.lower())]
+        if suffix_matches:
+            candidates = suffix_matches
+
+    non_factory = [candidate for candidate in candidates if "#" in candidate["symbol"]]
+    if non_factory:
+        candidates = non_factory
+
+    class_backed = [candidate for candidate in candidates if candidate["symbol"].endswith("#")]
+    if class_backed:
+        return class_backed
+
+    return candidates
+
+
 def build_spring_edges(store) -> list[dict]:
     edges: list[dict] = []
     bean_candidates_by_type: dict[str, list[dict]] = {}
@@ -181,7 +218,7 @@ def build_spring_edges(store) -> list[dict]:
                     if params:
                         for _, ctor_type in params:
                             fqcn = import_map.get(ctor_type.split("<", 1)[0], ctor_type.split("<", 1)[0])
-                            candidates = bean_candidates_by_type.get(fqcn, [])
+                            candidates = _prefer_candidates(bean_candidates_by_type.get(fqcn, []))
                             if candidates:
                                 for candidate in candidates:
                                     edges.append(
@@ -203,7 +240,8 @@ def build_spring_edges(store) -> list[dict]:
 
             simple_type = type_name.split("<", 1)[0] if type_name else ""
             fqcn = import_map.get(simple_type, simple_type)
-            candidates = bean_candidates_by_type.get(fqcn, []) if fqcn else []
+            bean_name_hint = field_by_symbol.get(site_symbol) if site_symbol in field_by_symbol else None
+            candidates = _prefer_candidates(bean_candidates_by_type.get(fqcn, []), bean_name_hint=bean_name_hint) if fqcn else []
 
             if candidates:
                 for candidate in candidates:
@@ -250,7 +288,7 @@ def build_spring_edges(store) -> list[dict]:
                 continue
             simple_type = field_type.split("<", 1)[0]
             fqcn = import_map.get(simple_type, simple_type)
-            candidates = bean_candidates_by_type.get(fqcn, [])
+            candidates = _prefer_candidates(bean_candidates_by_type.get(fqcn, []), bean_name_hint=field_name)
             if not candidates:
                 continue
             resolution = "constructor-final-field-type" if field_name in final_fields else "annotated-field-type"
@@ -281,7 +319,7 @@ def build_spring_edges(store) -> list[dict]:
             for _, ctor_type in params:
                 simple_type = ctor_type.split("<", 1)[0]
                 fqcn = import_map.get(simple_type, simple_type)
-                candidates = bean_candidates_by_type.get(fqcn, [])
+                candidates = _prefer_candidates(bean_candidates_by_type.get(fqcn, []))
                 for candidate in candidates:
                     edges.append(
                         {
@@ -304,7 +342,7 @@ def build_spring_edges(store) -> list[dict]:
             for field_name, field_type in field_types.items():
                 simple_type = field_type.split("<", 1)[0]
                 fqcn = import_map.get(simple_type, simple_type)
-                candidates = bean_candidates_by_type.get(fqcn, [])
+                candidates = _prefer_candidates(bean_candidates_by_type.get(fqcn, []), bean_name_hint=field_name)
                 for candidate in candidates:
                     key = (cls.symbol, candidate["bean_id"])
                     if key in deps_added:

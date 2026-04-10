@@ -90,6 +90,8 @@ def reactor_chain(store, return_stage: str) -> list[dict]:
                     "node": summarize_node(store, target),
                     "via": edge["type"],
                     "operator": metadata.get("operator", ""),
+                    "flow_kind": edge["type"],
+                    "publisher_type": "Flux" if "Flux#" in metadata.get("operator_symbol", "") else "Mono",
                     "range": metadata.get("range", []),
                 }
                 if target not in seen:

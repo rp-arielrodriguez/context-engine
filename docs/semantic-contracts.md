@@ -45,7 +45,7 @@ Current basis:
 
 Heuristic areas:
 
-- bean candidate disambiguation when multiple candidates share the same type
+- bean candidate disambiguation when multiple candidates share the same type is now more selective, preferring stronger bean-name and class-backed hints when available
 - field and constructor inference in complex source layouts
 
 ### Reactor
@@ -105,6 +105,11 @@ Heuristic areas:
 - Spring component and dependency context
 - Reactor return stage and operator chain
 - Netty runtime boundary
+
+Current mixed-flow Reactor details include:
+
+- inferred publisher types from `reactor.returns_publisher`
+- operator entries with `flow_kind`
 
 It is intended as an application-facing composition of lower-level contracts, not as the source of truth itself.
 

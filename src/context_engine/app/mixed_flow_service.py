@@ -61,6 +61,7 @@ def get_mixed_flow(store, method_symbol: str) -> dict:
         "reactor": {
             "return_stage": summarize_node(store, return_stage) if return_stage else None,
             "returns_publisher": return_edges,
+            "publisher_types": return_edges[0].get("metadata", {}).get("publisher_types", []) if return_edges else [],
             "operator_chain": operator_chain,
         },
         "netty": {
