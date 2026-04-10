@@ -54,6 +54,16 @@ def test_real_index_secondary_reactive_flow_smoke() -> None:
     assert "map" in operators
     assert "reactor.operator_applies" in flow_kinds
 
+    request_info_injections = [
+        field
+        for field in flow["spring"]["field_injections"]
+        if field["field"]["display_name"] == "requestInfoService"
+    ]
+    assert len(request_info_injections) == 1
+    bean_names = [edge["metadata"]["bean_name"] for edge in request_info_injections[0]["injects"]]
+    assert "requestInfoServiceImpl" in bean_names
+    assert "getRequestInfoServiceLegacy" in bean_names
+
 
 @pytest.mark.skipif(not os.environ.get(REAL_INDEX_ENV), reason="real index not configured")
 def test_real_index_paymentlink_reactive_semantics() -> None:

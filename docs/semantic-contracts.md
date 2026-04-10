@@ -45,7 +45,7 @@ Current basis:
 
 Heuristic areas:
 
-- bean candidate disambiguation when multiple candidates share the same type is now more selective, preferring stronger bean-name and class-backed hints when available
+- bean candidate disambiguation when multiple candidates share the same type is now more selective, preferring stronger bean-name, profile, primary, and class-backed hints when available; some same-type cases may still remain explicitly ambiguous
 - field and constructor inference in complex source layouts
 
 ### Reactor

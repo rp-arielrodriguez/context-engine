@@ -1,5 +1,62 @@
 from __future__ import annotations
 
+import re
+
+
+def _extract_profile_hints(source: str) -> tuple[set[str], set[str]]:
+    positive: set[str] = set()
+    negative: set[str] = set()
+    for match in re.finditer(r'@Profile\(([^)]*)\)', source):
+        raw = match.group(1)
+        for quoted in re.findall(r'"([^"]+)"', raw):
+            profile = quoted.strip()
+            if not profile:
+                continue
+            if profile.startswith("!"):
+                negative.add(profile[1:])
+            else:
+                positive.add(profile)
+    return positive, negative
+
+
+def _extract_method_annotation_block(source: str, method_name: str) -> str:
+    lines = source.splitlines()
+    for idx, line in enumerate(lines):
+        if re.search(rf'\b{re.escape(method_name)}\s*\(', line):
+            start = idx
+            while start > 0 and lines[start - 1].strip().startswith("@"):
+                start -= 1
+            return "\n".join(lines[start : idx + 1])
+    return ""
+
+
+def _score_candidate(candidate: dict, *, consumer_profiles: set[str], bean_name_hint: str | None) -> int:
+    score = 0
+
+    bean_name = candidate.get("bean_name", "")
+    if bean_name_hint:
+        if bean_name == bean_name_hint:
+            score += 10
+        elif bean_name.lower().endswith(bean_name_hint.lower()):
+            score += 4
+
+    candidate_profiles = set(candidate.get("profiles", set()))
+    candidate_negative_profiles = set(candidate.get("negative_profiles", set()))
+    if consumer_profiles:
+        if candidate_profiles & consumer_profiles:
+            score += 6
+        if candidate_negative_profiles & consumer_profiles:
+            score -= 8
+
+    if candidate.get("is_primary"):
+        score += 5
+    if candidate.get("conditional_on_missing"):
+        score -= 2
+    if candidate.get("symbol", "").endswith("#"):
+        score += 1
+
+    return score
+
 
 def _dedupe_candidates(candidates: list[dict]) -> list[dict]:
     seen: set[str] = set()
@@ -13,10 +70,12 @@ def _dedupe_candidates(candidates: list[dict]) -> list[dict]:
     return out
 
 
-def _prefer_candidates(candidates: list[dict], *, bean_name_hint: str | None = None) -> list[dict]:
+def _prefer_candidates(candidates: list[dict], *, bean_name_hint: str | None = None, consumer_profiles: set[str] | None = None) -> list[dict]:
     candidates = _dedupe_candidates(candidates)
     if len(candidates) <= 1:
         return candidates
+
+    consumer_profiles = consumer_profiles or set()
 
     if bean_name_hint:
         exact = [candidate for candidate in candidates if candidate["bean_name"] == bean_name_hint]
@@ -33,7 +92,12 @@ def _prefer_candidates(candidates: list[dict], *, bean_name_hint: str | None = N
 
     class_backed = [candidate for candidate in candidates if candidate["symbol"].endswith("#")]
     if class_backed:
-        return class_backed
+        candidates = class_backed
+
+    scored = [(_score_candidate(candidate, consumer_profiles=consumer_profiles, bean_name_hint=bean_name_hint), candidate) for candidate in candidates]
+    best_score = max(score for score, _ in scored)
+    best = [candidate for score, candidate in scored if score == best_score]
+    return _dedupe_candidates(best)
 
     return candidates
 
@@ -47,6 +111,7 @@ def build_spring_edges(store) -> list[dict]:
         doc_occurrences = store.occurrences_by_document.get(document, [])
         source = store._read_source(document)
         import_map = store._extract_import_map(source)
+        consumer_profiles, _ = _extract_profile_hints(source)
 
         component_ann = [o for o in doc_occurrences if store._is_spring_component_annotation(o.symbol)]
         mapping_ann = [o for o in doc_occurrences if store._is_spring_mapping_annotation(o.symbol)]
@@ -119,6 +184,8 @@ def build_spring_edges(store) -> list[dict]:
             )
             fqcn = import_map.get(return_type, return_type)
             if not store._is_test_document(document):
+                annotation_block = _extract_method_annotation_block(source, method_name)
+                positive_profiles, negative_profiles = _extract_profile_hints(annotation_block)
                 bean_meta = {
                     "bean_id": bean_id,
                     "symbol": matching_method.symbol,
@@ -126,6 +193,10 @@ def build_spring_edges(store) -> list[dict]:
                     "fqcn": fqcn,
                     "simple_name": store._simple_name_from_fqcn(fqcn),
                     "bean_name": method_name,
+                    "profiles": positive_profiles,
+                    "negative_profiles": negative_profiles,
+                    "is_primary": "@Primary" in annotation_block,
+                    "conditional_on_missing": "@ConditionalOnMissingBean" in annotation_block,
                 }
                 bean_candidates_by_type.setdefault(fqcn, []).append(bean_meta)
 
@@ -218,7 +289,7 @@ def build_spring_edges(store) -> list[dict]:
                     if params:
                         for _, ctor_type in params:
                             fqcn = import_map.get(ctor_type.split("<", 1)[0], ctor_type.split("<", 1)[0])
-                            candidates = _prefer_candidates(bean_candidates_by_type.get(fqcn, []))
+                            candidates = _prefer_candidates(bean_candidates_by_type.get(fqcn, []), consumer_profiles=consumer_profiles)
                             if candidates:
                                 for candidate in candidates:
                                     edges.append(
@@ -241,7 +312,11 @@ def build_spring_edges(store) -> list[dict]:
             simple_type = type_name.split("<", 1)[0] if type_name else ""
             fqcn = import_map.get(simple_type, simple_type)
             bean_name_hint = field_by_symbol.get(site_symbol) if site_symbol in field_by_symbol else None
-            candidates = _prefer_candidates(bean_candidates_by_type.get(fqcn, []), bean_name_hint=bean_name_hint) if fqcn else []
+            candidates = _prefer_candidates(
+                bean_candidates_by_type.get(fqcn, []),
+                bean_name_hint=bean_name_hint,
+                consumer_profiles=consumer_profiles,
+            ) if fqcn else []
 
             if candidates:
                 for candidate in candidates:
@@ -288,7 +363,11 @@ def build_spring_edges(store) -> list[dict]:
                 continue
             simple_type = field_type.split("<", 1)[0]
             fqcn = import_map.get(simple_type, simple_type)
-            candidates = _prefer_candidates(bean_candidates_by_type.get(fqcn, []), bean_name_hint=field_name)
+            candidates = _prefer_candidates(
+                bean_candidates_by_type.get(fqcn, []),
+                bean_name_hint=field_name,
+                consumer_profiles=consumer_profiles,
+            )
             if not candidates:
                 continue
             resolution = "constructor-final-field-type" if field_name in final_fields else "annotated-field-type"
@@ -319,7 +398,7 @@ def build_spring_edges(store) -> list[dict]:
             for _, ctor_type in params:
                 simple_type = ctor_type.split("<", 1)[0]
                 fqcn = import_map.get(simple_type, simple_type)
-                candidates = _prefer_candidates(bean_candidates_by_type.get(fqcn, []))
+                candidates = _prefer_candidates(bean_candidates_by_type.get(fqcn, []), consumer_profiles=consumer_profiles)
                 for candidate in candidates:
                     edges.append(
                         {
@@ -342,7 +421,11 @@ def build_spring_edges(store) -> list[dict]:
             for field_name, field_type in field_types.items():
                 simple_type = field_type.split("<", 1)[0]
                 fqcn = import_map.get(simple_type, simple_type)
-                candidates = _prefer_candidates(bean_candidates_by_type.get(fqcn, []), bean_name_hint=field_name)
+                candidates = _prefer_candidates(
+                    bean_candidates_by_type.get(fqcn, []),
+                    bean_name_hint=field_name,
+                    consumer_profiles=consumer_profiles,
+                )
                 for candidate in candidates:
                     key = (cls.symbol, candidate["bean_id"])
                     if key in deps_added:
