@@ -50,6 +50,30 @@ def class_symbol_for_method(store, method_symbol: str) -> str | None:
     return classes[0].symbol if classes else None
 
 
+def _spring_injection_resolution(edges: list[dict]) -> dict:
+    if not edges:
+        return {
+            "match_state": "unresolved",
+            "candidate_count": 0,
+            "candidate_bean_names": [],
+        }
+
+    metadata = edges[0].get("metadata", {})
+    bean_names = sorted(
+        {
+            edge.get("metadata", {}).get("bean_name", "")
+            for edge in edges
+            if edge.get("metadata", {}).get("bean_name")
+        }
+    )
+    candidate_names = metadata.get("candidate_bean_names") or bean_names
+    return {
+        "match_state": metadata.get("match_state", "resolved" if len(edges) == 1 else "ambiguous"),
+        "candidate_count": metadata.get("candidate_count", len(edges)),
+        "candidate_bean_names": candidate_names,
+    }
+
+
 def field_injections_for_class(store, class_symbol: str) -> list[dict]:
     class_node = store.symbols_by_id.get(class_symbol)
     if class_node is None:
@@ -66,6 +90,7 @@ def field_injections_for_class(store, class_symbol: str) -> list[dict]:
             {
                 "field": summarize_node(store, field.symbol),
                 "injects": edges,
+                "resolution": _spring_injection_resolution(edges),
             }
         )
     return out

@@ -70,13 +70,89 @@ def _dedupe_candidates(candidates: list[dict]) -> list[dict]:
     return out
 
 
-def _prefer_candidates(candidates: list[dict], *, bean_name_hint: str | None = None, consumer_profiles: set[str] | None = None) -> list[dict]:
+def _candidate_match_state(candidates: list[dict]) -> str:
+    if not candidates:
+        return "unresolved"
+    if len(candidates) == 1:
+        return "resolved"
+    return "ambiguous"
+
+
+def _candidate_resolution_metadata(candidates: list[dict]) -> dict:
+    deduped = _dedupe_candidates(candidates)
+    return {
+        "match_state": _candidate_match_state(deduped),
+        "candidate_count": len(deduped),
+        "candidate_bean_names": sorted(
+            {candidate.get("bean_name", "") for candidate in deduped if candidate.get("bean_name")}
+        ),
+    }
+
+
+def _eliminate_impossible_candidates(
+    candidates: list[dict],
+    *,
+    consumer_profiles: set[str] | None = None,
+) -> list[dict]:
+    """Remove candidates that Spring would never instantiate in this context.
+
+    Two hard rules:
+    1. Negative profile conflict: candidate has @Profile("!X") and consumer has X.
+       Spring will not instantiate that bean -- it's not a preference, it's a fact.
+    2. @ConditionalOnMissingBean: if a surviving non-conditional candidate exists
+       for the same type, conditional candidates are superseded.
+
+    Falls back to the original list if elimination removes everything.
+    """
+    if not candidates:
+        return candidates
+    profiles = consumer_profiles or set()
+
+    # Pass 1: eliminate negative-profile conflicts
+    after_profile: list[dict] = []
+    for c in candidates:
+        neg = set(c.get("negative_profiles", set()))
+        if profiles and neg and neg & profiles:
+            continue  # bean explicitly says "not with this profile"
+        after_profile.append(c)
+    if not after_profile:
+        after_profile = candidates  # safety fallback
+
+    # Pass 2: eliminate @ConditionalOnMissingBean when a non-conditional survives
+    has_non_conditional = any(not c.get("conditional_on_missing") for c in after_profile)
+    if has_non_conditional:
+        after_conditional = [c for c in after_profile if not c.get("conditional_on_missing")]
+        if after_conditional:
+            after_profile = after_conditional
+
+    return after_profile
+
+
+def _prefer_candidates(
+    candidates: list[dict],
+    *,
+    bean_name_hint: str | None = None,
+    qualifier_hint: str | None = None,
+    consumer_profiles: set[str] | None = None,
+) -> list[dict]:
     candidates = _dedupe_candidates(candidates)
     if len(candidates) <= 1:
         return candidates
 
     consumer_profiles = consumer_profiles or set()
 
+    # Stage 0: hard elimination of impossible candidates
+    candidates = _eliminate_impossible_candidates(candidates, consumer_profiles=consumer_profiles)
+    if len(candidates) <= 1:
+        return candidates
+
+    # Stage 1: @Qualifier / @Resource exact match (strongest signal)
+    if qualifier_hint:
+        exact_q = [c for c in candidates if c["bean_name"] == qualifier_hint]
+        if exact_q:
+            return exact_q
+
+    # Stage 2: bean-name matching
     if bean_name_hint:
         exact = [candidate for candidate in candidates if candidate["bean_name"] == bean_name_hint]
         if exact:
@@ -94,12 +170,11 @@ def _prefer_candidates(candidates: list[dict], *, bean_name_hint: str | None = N
     if class_backed:
         candidates = class_backed
 
+    # Stage 3: score remaining survivors
     scored = [(_score_candidate(candidate, consumer_profiles=consumer_profiles, bean_name_hint=bean_name_hint), candidate) for candidate in candidates]
     best_score = max(score for score, _ in scored)
     best = [candidate for score, candidate in scored if score == best_score]
     return _dedupe_candidates(best)
-
-    return candidates
 
 
 def build_spring_edges(store) -> list[dict]:
@@ -291,6 +366,7 @@ def build_spring_edges(store) -> list[dict]:
                             fqcn = import_map.get(ctor_type.split("<", 1)[0], ctor_type.split("<", 1)[0])
                             candidates = _prefer_candidates(bean_candidates_by_type.get(fqcn, []), consumer_profiles=consumer_profiles)
                             if candidates:
+                                resolution_metadata = _candidate_resolution_metadata(candidates)
                                 for candidate in candidates:
                                     edges.append(
                                         {
@@ -304,6 +380,7 @@ def build_spring_edges(store) -> list[dict]:
                                                 "annotation": ann.symbol,
                                                 "resolution": "by-constructor-type",
                                                 "required_type": fqcn,
+                                                **resolution_metadata,
                                             },
                                         }
                                     )
@@ -312,13 +389,16 @@ def build_spring_edges(store) -> list[dict]:
             simple_type = type_name.split("<", 1)[0] if type_name else ""
             fqcn = import_map.get(simple_type, simple_type)
             bean_name_hint = field_by_symbol.get(site_symbol) if site_symbol in field_by_symbol else None
+            qualifier_hint = store._extract_qualifier_hint(source, bean_name_hint) if bean_name_hint else None
             candidates = _prefer_candidates(
                 bean_candidates_by_type.get(fqcn, []),
                 bean_name_hint=bean_name_hint,
+                qualifier_hint=qualifier_hint,
                 consumer_profiles=consumer_profiles,
             ) if fqcn else []
 
             if candidates:
+                resolution_metadata = _candidate_resolution_metadata(candidates)
                 for candidate in candidates:
                     edges.append(
                         {
@@ -333,6 +413,7 @@ def build_spring_edges(store) -> list[dict]:
                                 "resolution": "by-imported-type",
                                 "required_type": fqcn,
                                 "bean_name": candidate["bean_name"],
+                                **resolution_metadata,
                             },
                         }
                     )
@@ -350,6 +431,9 @@ def build_spring_edges(store) -> list[dict]:
                             "annotation": ann.symbol,
                             "resolution": "unresolved",
                             "required_type": fqcn,
+                            "match_state": "unresolved",
+                            "candidate_count": 0,
+                            "candidate_bean_names": [],
                         },
                     }
                 )
@@ -363,14 +447,17 @@ def build_spring_edges(store) -> list[dict]:
                 continue
             simple_type = field_type.split("<", 1)[0]
             fqcn = import_map.get(simple_type, simple_type)
+            qualifier_hint = store._extract_qualifier_hint(source, field_name)
             candidates = _prefer_candidates(
                 bean_candidates_by_type.get(fqcn, []),
                 bean_name_hint=field_name,
+                qualifier_hint=qualifier_hint,
                 consumer_profiles=consumer_profiles,
             )
             if not candidates:
                 continue
             resolution = "constructor-final-field-type" if field_name in final_fields else "annotated-field-type"
+            resolution_metadata = _candidate_resolution_metadata(candidates)
             for candidate in candidates:
                 edges.append(
                     {
@@ -385,6 +472,7 @@ def build_spring_edges(store) -> list[dict]:
                             "required_type": fqcn,
                             "field_name": field_name,
                             "bean_name": candidate["bean_name"],
+                            **resolution_metadata,
                         },
                     }
                 )
@@ -395,10 +483,16 @@ def build_spring_edges(store) -> list[dict]:
             if not owner:
                 continue
             params = store._extract_constructor_params(source, owner.display_name)
-            for _, ctor_type in params:
+            ctor_qualifier_hints = store._extract_constructor_qualifier_hints(source, owner.display_name)
+            for param_name, ctor_type in params:
                 simple_type = ctor_type.split("<", 1)[0]
                 fqcn = import_map.get(simple_type, simple_type)
-                candidates = _prefer_candidates(bean_candidates_by_type.get(fqcn, []), consumer_profiles=consumer_profiles)
+                candidates = _prefer_candidates(
+                    bean_candidates_by_type.get(fqcn, []),
+                    qualifier_hint=ctor_qualifier_hints.get(param_name),
+                    consumer_profiles=consumer_profiles,
+                )
+                resolution_metadata = _candidate_resolution_metadata(candidates)
                 for candidate in candidates:
                     edges.append(
                         {
@@ -412,6 +506,7 @@ def build_spring_edges(store) -> list[dict]:
                                 "resolution": "constructor-parameter-type",
                                 "required_type": fqcn,
                                 "bean_name": candidate["bean_name"],
+                                **resolution_metadata,
                             },
                         }
                     )
@@ -424,8 +519,10 @@ def build_spring_edges(store) -> list[dict]:
                 candidates = _prefer_candidates(
                     bean_candidates_by_type.get(fqcn, []),
                     bean_name_hint=field_name,
+                    qualifier_hint=store._extract_qualifier_hint(source, field_name),
                     consumer_profiles=consumer_profiles,
                 )
+                resolution_metadata = _candidate_resolution_metadata(candidates)
                 for candidate in candidates:
                     key = (cls.symbol, candidate["bean_id"])
                     if key in deps_added:
@@ -444,6 +541,7 @@ def build_spring_edges(store) -> list[dict]:
                                 "required_type": fqcn,
                                 "field_name": field_name,
                                 "bean_name": candidate["bean_name"],
+                                **resolution_metadata,
                             },
                         }
                     )

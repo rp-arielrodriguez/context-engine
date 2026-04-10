@@ -159,6 +159,53 @@ def field_has_nearby_inject_annotation(source: str, field_name: str) -> bool:
     return False
 
 
+def extract_qualifier_hint(source: str, field_name: str) -> str | None:
+    """Extract @Qualifier("name") or @Resource(name="name") for a field.
+
+    Searches a small window above the field declaration for:
+    - @Qualifier("beanName")
+    - @Resource(name = "beanName")
+    """
+    lines = source.splitlines()
+    for idx, line in enumerate(lines):
+        if field_name not in line or ";" not in line:
+            continue
+        window = "\n".join(lines[max(0, idx - 3) : idx + 1])
+        q_match = re.search(r'@Qualifier\(\s*"([^"]+)"\s*\)', window)
+        if q_match:
+            return q_match.group(1)
+        r_match = re.search(r'@Resource\(\s*name\s*=\s*"([^"]+)"\s*\)', window)
+        if r_match:
+            return r_match.group(1)
+    return None
+
+
+def extract_constructor_qualifier_hints(source: str, class_name: str) -> dict[str, str]:
+    """Extract @Qualifier hints from constructor parameters.
+
+    Returns {param_name: qualifier_value} for parameters annotated with @Qualifier.
+    """
+    pattern = re.compile(rf"public\s+{re.escape(class_name)}\s*\((.*?)\)\s*\{{", re.DOTALL)
+    match = pattern.search(source)
+    if not match:
+        return {}
+    params_blob = match.group(1).strip()
+    if not params_blob:
+        return {}
+    hints: dict[str, str] = {}
+    for raw in params_blob.split(","):
+        part = raw.strip()
+        if not part:
+            continue
+        q_match = re.search(r'@Qualifier\(\s*"([^"]+)"\s*\)', part)
+        if q_match:
+            tokens = part.split()
+            if len(tokens) >= 2:
+                param_name = tokens[-1]
+                hints[param_name] = q_match.group(1)
+    return hints
+
+
 def is_test_document(document: str) -> bool:
     return "/src/test/" in document or document.startswith("src/test/") or "/test/" in document
 

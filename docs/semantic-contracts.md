@@ -42,11 +42,31 @@ Current basis:
 - constructor and final-field inference
 - `@Bean` factory methods
 - imported type matching for candidate bean resolution
+- `@Qualifier` and `@Resource(name=...)` for explicit bean selection
+- `@Profile` positive/negative matching with hard elimination of incompatible candidates
+- `@Primary` scoring preference
+- `@ConditionalOnMissingBean` hard elimination when a non-conditional candidate exists
+
+Bean disambiguation model:
+
+- **Elimination phase**: candidates that Spring would never instantiate in the consumer's context are removed before scoring:
+  - `@Profile("!X")` conflict: if the consumer has profile X, candidates with negative profile X are eliminated
+  - `@ConditionalOnMissingBean`: if a non-conditional candidate exists for the same type, conditional candidates are eliminated
+- **Qualifier phase**: `@Qualifier("name")` or `@Resource(name="name")` provides an exact bean-name match, overriding type-based scoring
+- **Scoring phase**: remaining candidates are ranked by bean-name match, profile affinity, `@Primary`, and class-backed preference
 
 Heuristic areas:
 
-- bean candidate disambiguation when multiple candidates share the same type is now more selective, preferring stronger bean-name, profile, primary, and class-backed hints when available; some same-type cases may still remain explicitly ambiguous
+- some same-type cases may still remain explicitly ambiguous after elimination and scoring
 - field and constructor inference in complex source layouts
+- `@ConditionalOnProperty`, `@ConditionalOnClass`, and other conditional annotations are not yet modeled
+
+Current Spring edge metadata may include:
+
+- `resolution`: inference path such as `by-imported-type`, `constructor-parameter-type`, or `unresolved`
+- `match_state`: `resolved`, `ambiguous`, or `unresolved`
+- `candidate_count`: number of surviving bean candidates after heuristic filtering
+- `candidate_bean_names`: surviving candidate bean names when available
 
 ### Reactor
 
@@ -110,6 +130,12 @@ Current mixed-flow Reactor details include:
 
 - inferred publisher types from `reactor.returns_publisher`
 - operator entries with `flow_kind`
+
+Current mixed-flow Spring field injection details include:
+
+- `injects`: the underlying `spring.injects` edges
+- `resolution.match_state`: whether the field resolved cleanly, remained ambiguous, or was unresolved
+- `resolution.candidate_count` and `resolution.candidate_bean_names` for ambiguous same-type injections
 
 It is intended as an application-facing composition of lower-level contracts, not as the source of truth itself.
 

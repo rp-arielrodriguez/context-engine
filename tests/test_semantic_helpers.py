@@ -1,7 +1,9 @@
 from __future__ import annotations
 
 from context_engine.adapters.semantics.helpers import (
+    extract_constructor_qualifier_hints,
     extract_import_map,
+    extract_qualifier_hint,
     is_spring_component_annotation,
     normalize_range,
     reactor_operator_name,
@@ -25,3 +27,42 @@ def test_extract_import_map_and_component_annotation_detection() -> None:
 def test_reactor_operator_name_detects_known_operators() -> None:
     assert reactor_operator_name("semanticdb maven . . reactor/core/publisher/Mono#map().") == "map"
     assert reactor_operator_name("semanticdb maven . . reactor/core/publisher/Mono#onErrorMap(+1).") == "onErrorMap"
+
+
+def test_extract_qualifier_hint_finds_qualifier_annotation() -> None:
+    source = (
+        '    @Autowired\n'
+        '    @Qualifier("mySpecialBean")\n'
+        '    private SomeService someService;\n'
+    )
+    assert extract_qualifier_hint(source, "someService") == "mySpecialBean"
+
+
+def test_extract_qualifier_hint_finds_resource_annotation() -> None:
+    source = (
+        '    @Resource(name = "legacyService")\n'
+        '    private SomeService someService;\n'
+    )
+    assert extract_qualifier_hint(source, "someService") == "legacyService"
+
+
+def test_extract_qualifier_hint_returns_none_when_absent() -> None:
+    source = (
+        '    @Autowired\n'
+        '    private SomeService someService;\n'
+    )
+    assert extract_qualifier_hint(source, "someService") is None
+
+
+def test_extract_constructor_qualifier_hints() -> None:
+    source = (
+        'public class MyController {\n'
+        '    public MyController(\n'
+        '        @Qualifier("primary") SomeService svc,\n'
+        '        OtherService other\n'
+        '    ) { }\n'
+        '}\n'
+    )
+    hints = extract_constructor_qualifier_hints(source, "MyController")
+    assert hints == {"svc": "primary"}
+    assert "other" not in hints

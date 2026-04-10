@@ -25,10 +25,12 @@ from .adapters.semantics.helpers import (
     contains_scope,
     extract_bean_methods,
     extract_constructor_params,
+    extract_constructor_qualifier_hints,
     extract_field_types,
     extract_final_fields,
     extract_implemented_interfaces,
     extract_import_map,
+    extract_qualifier_hint,
     field_has_nearby_inject_annotation,
     fqcn_from_symbol,
     is_injection_annotation,
@@ -59,6 +61,8 @@ class IndexStore:
     _extract_field_types = staticmethod(extract_field_types)
     _extract_final_fields = staticmethod(extract_final_fields)
     _field_has_nearby_inject_annotation = staticmethod(field_has_nearby_inject_annotation)
+    _extract_qualifier_hint = staticmethod(extract_qualifier_hint)
+    _extract_constructor_qualifier_hints = staticmethod(extract_constructor_qualifier_hints)
     _is_test_document = staticmethod(is_test_document)
     _extract_implemented_interfaces = staticmethod(extract_implemented_interfaces)
     _extract_bean_methods = staticmethod(extract_bean_methods)

@@ -60,9 +60,11 @@ def test_real_index_secondary_reactive_flow_smoke() -> None:
         if field["field"]["display_name"] == "requestInfoService"
     ]
     assert len(request_info_injections) == 1
-    bean_names = [edge["metadata"]["bean_name"] for edge in request_info_injections[0]["injects"]]
-    assert "requestInfoServiceImpl" in bean_names
-    assert "getRequestInfoServiceLegacy" in bean_names
+    resolution = request_info_injections[0]["resolution"]
+    assert resolution["match_state"] == "resolved"
+    assert resolution["candidate_count"] == 1
+    bean_names = resolution["candidate_bean_names"]
+    assert bean_names == ["requestInfoServiceImpl"]
 
 
 @pytest.mark.skipif(not os.environ.get(REAL_INDEX_ENV), reason="real index not configured")

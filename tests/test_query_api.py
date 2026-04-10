@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from types import SimpleNamespace
 
+from context_engine.app.flow_helpers import field_injections_for_class
 from context_engine.app.query_api import find_documents, find_symbols, get_semantic_edges, trace_semantic_path
 from context_engine.core.models import DocumentRecord, SymbolRecord
 
@@ -92,3 +93,61 @@ def test_trace_semantic_path_uses_neighbors_to_expand_paths() -> None:
 
     assert result[0][0]["symbol"] == "a"
     assert result[0][1]["symbol"] == "b"
+
+
+def test_field_injections_for_class_reports_ambiguous_resolution() -> None:
+    class_symbol = "class-a"
+    field_symbol = "field-a"
+    store = SimpleNamespace(
+        symbols_by_id={
+            class_symbol: SimpleNamespace(symbol=class_symbol, document="src/Foo.java", kind="Class", display_name="Foo"),
+            field_symbol: SimpleNamespace(symbol=field_symbol, document="src/Foo.java", kind="Field", display_name="requestInfoService"),
+        },
+        symbols_by_document={
+            "src/Foo.java": [
+                SimpleNamespace(symbol=class_symbol, document="src/Foo.java", kind="Class", display_name="Foo"),
+                SimpleNamespace(symbol=field_symbol, document="src/Foo.java", kind="Field", display_name="requestInfoService"),
+            ]
+        },
+    )
+
+    edges = [
+        {
+            "source": field_symbol,
+            "target": "springbean:a",
+            "type": "spring.injects",
+            "metadata": {
+                "bean_name": "requestInfoServiceImpl",
+                "match_state": "ambiguous",
+                "candidate_count": 2,
+                "candidate_bean_names": ["getRequestInfoServiceLegacy", "requestInfoServiceImpl"],
+            },
+        },
+        {
+            "source": field_symbol,
+            "target": "springbean:b",
+            "type": "spring.injects",
+            "metadata": {
+                "bean_name": "getRequestInfoServiceLegacy",
+                "match_state": "ambiguous",
+                "candidate_count": 2,
+                "candidate_bean_names": ["getRequestInfoServiceLegacy", "requestInfoServiceImpl"],
+            },
+        },
+    ]
+
+    def get_semantic_edges(node_id: str, direction: str = "both", type_filter: list[str] | None = None, limit: int = 100) -> list[dict]:
+        if node_id == field_symbol and direction == "out" and type_filter == ["spring.injects"]:
+            return edges[:limit]
+        return []
+
+    store.get_semantic_edges = get_semantic_edges
+
+    result = field_injections_for_class(store, class_symbol)
+
+    assert len(result) == 1
+    assert result[0]["resolution"] == {
+        "match_state": "ambiguous",
+        "candidate_count": 2,
+        "candidate_bean_names": ["getRequestInfoServiceLegacy", "requestInfoServiceImpl"],
+    }
