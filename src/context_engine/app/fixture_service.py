@@ -6,6 +6,36 @@ from .flow_helpers import has_operator
 MONO_SYMBOL = "semanticdb maven . . reactor/core/publisher/Mono#"
 
 
+def _field_resolution_by_name(store, method_symbol: str, field_name: str) -> dict | None:
+    flow = store.get_mixed_flow(method_symbol)
+    for field in flow["spring"]["field_injections"]:
+        if field["field"]["display_name"] == field_name:
+            return field["resolution"]
+    return None
+
+
+def _field_resolution_matches(
+    store,
+    method_symbol: str,
+    field_name: str,
+    *,
+    match_state: str,
+    candidate_names: list[str],
+) -> bool:
+    resolution = _field_resolution_by_name(store, method_symbol, field_name)
+    if resolution is None:
+        return False
+    return (
+        resolution.get("match_state") == match_state
+        and sorted(resolution.get("candidate_bean_names", [])) == sorted(candidate_names)
+    )
+
+
+def _operator_sequence_matches(store, method_symbol: str, expected: list[str]) -> bool:
+    flow = store.get_mixed_flow(method_symbol)
+    return [stage["operator"] for stage in flow["reactor"]["operator_chain"]] == expected
+
+
 def _fixture_context(store, document: str) -> dict:
     cache = getattr(store, "_fixture_context_cache", None)
     if cache is None:
@@ -47,8 +77,20 @@ def validate_fixture(store, fixture_id: str) -> dict:
             "spring_endpoint_maps_to": len(store.get_semantic_edges(method_symbol, direction="in", type_filter=["spring.endpoint_maps_to"])) > 0,
             "spring_depends_on_resolved": len(store.get_semantic_edges(class_symbol, direction="out", type_filter=["spring.depends_on"])) > 0,
             "spring_injects_resolved": len(store.get_semantic_edges(field_symbol, direction="out", type_filter=["spring.injects"])) > 0,
+            "spring_shoppingcart_service_ambiguous": _field_resolution_matches(
+                store,
+                method_symbol,
+                "shoppingCartService",
+                match_state="ambiguous",
+                candidate_names=[
+                    "clientShoppingCartService",
+                    "repositoryShoppingCartService",
+                    "dummyShoppingCartService",
+                ],
+            ),
             "reactor_returns_publisher": len(store.get_semantic_edges(method_symbol, direction="out", type_filter=["reactor.returns_publisher"])) > 0,
             "reactor_operator_chain": len(store.get_semantic_edges(return_stage, direction="out", type_filter=["reactor.operator_applies"])) > 0,
+            "reactor_operator_sequence": _operator_sequence_matches(store, method_symbol, ["fromFuture", "map"]),
             "netty_runtime_boundary": len(store.get_semantic_edges(return_stage, direction="out", type_filter=["netty.runtime_boundary"])) > 0,
         }
 
@@ -88,11 +130,26 @@ def validate_fixture(store, fixture_id: str) -> dict:
             "spring_endpoint_maps_to": len(store.get_semantic_edges(method_symbol, direction="in", type_filter=["spring.endpoint_maps_to"])) > 0,
             "spring_depends_on_resolved": len(store.get_semantic_edges(class_symbol, direction="out", type_filter=["spring.depends_on"])) > 0,
             "spring_injects_resolved": len(store.get_semantic_edges(field_symbol, direction="out", type_filter=["spring.injects"])) > 0,
+            "spring_request_info_resolved": _field_resolution_matches(
+                store,
+                method_symbol,
+                "requestInfoService",
+                match_state="resolved",
+                candidate_names=["requestInfoServiceImpl"],
+            ),
+            "spring_authorization_service_resolved": _field_resolution_matches(
+                store,
+                method_symbol,
+                "authorizationService",
+                match_state="resolved",
+                candidate_names=["authorizationService"],
+            ),
             "mono_reference_in_controller": len(refs_to_mono) > 0,
             "reactor_returns_publisher": len(store.get_semantic_edges(method_symbol, direction="out", type_filter=["reactor.returns_publisher"])) > 0,
             "reactor_just_or_empty": has_operator(store, return_stage, "justOrEmpty"),
             "reactor_map": has_operator(store, return_stage, "map"),
             "reactor_default_if_empty": has_operator(store, return_stage, "defaultIfEmpty"),
+            "reactor_operator_sequence": _operator_sequence_matches(store, method_symbol, ["justOrEmpty", "map", "defaultIfEmpty"]),
             "netty_runtime_boundary": len(store.get_semantic_edges(return_stage, direction="out", type_filter=["netty.runtime_boundary"])) > 0,
         }
 
@@ -131,11 +188,33 @@ def validate_fixture(store, fixture_id: str) -> dict:
             "spring_component_declares": len(store.get_semantic_edges(class_symbol, direction="out", type_filter=["spring.component_declares"])) > 0,
             "spring_depends_on_resolved": len(store.get_semantic_edges(class_symbol, direction="out", type_filter=["spring.depends_on"])) > 0,
             "spring_injects_resolved": len(store.get_semantic_edges(field_symbol, direction="out", type_filter=["spring.injects"])) > 0,
+            "spring_payment_link_service_resolved": _field_resolution_matches(
+                store,
+                method_symbol,
+                "paymentLinkService",
+                match_state="resolved",
+                candidate_names=["paymentLinkService"],
+            ),
+            "spring_catalog_shopping_cart_service_resolved": _field_resolution_matches(
+                store,
+                method_symbol,
+                "catalogShoppingCartService",
+                match_state="resolved",
+                candidate_names=["catalogShoppingCartServiceImpl"],
+            ),
+            "spring_banner_service_resolved": _field_resolution_matches(
+                store,
+                method_symbol,
+                "bannerService",
+                match_state="resolved",
+                candidate_names=["clientBannerService"],
+            ),
             "mono_reference_in_service": len(refs_to_mono) > 0,
             "reactor_returns_publisher": len(store.get_semantic_edges(method_symbol, direction="out", type_filter=["reactor.returns_publisher"])) > 0,
             "reactor_from_callable": has_operator(store, return_stage, "fromCallable"),
             "reactor_do_on_error": has_operator(store, return_stage, "doOnError"),
             "reactor_on_error_map": has_operator(store, return_stage, "onErrorMap"),
+            "reactor_operator_sequence": _operator_sequence_matches(store, method_symbol, ["fromCallable", "doOnError", "onErrorMap"]),
         }
 
         return {

@@ -32,10 +32,28 @@ def test_real_index_fixture_and_flow_smoke() -> None:
     )
     assert flow["entrypoint"]["http_mappings"]
     assert flow["reactor"]["returns_publisher"]
-    assert "Mono" in flow["reactor"]["publisher_types"]
+    assert flow["reactor"]["publisher_types"] == ["Mono"]
     assert flow["spring"]["depends_on"]
     assert flow["netty"]["runtime_boundaries"]
     assert all(stage["flow_kind"] in {"reactor.operator_applies", "reactor.flows_to", "reactor.error_fallback_to"} for stage in flow["reactor"]["operator_chain"])
+
+    shopping_cart_injections = [
+        field
+        for field in flow["spring"]["field_injections"]
+        if field["field"]["display_name"] == "shoppingCartService"
+    ]
+    assert len(shopping_cart_injections) == 1
+    shopping_cart_resolution = shopping_cart_injections[0]["resolution"]
+    assert shopping_cart_resolution["match_state"] == "ambiguous"
+    assert shopping_cart_resolution["candidate_count"] == 3
+    assert sorted(shopping_cart_resolution["candidate_bean_names"]) == [
+        "clientShoppingCartService",
+        "dummyShoppingCartService",
+        "repositoryShoppingCartService",
+    ]
+
+    shopping_cart_operators = [stage["operator"] for stage in flow["reactor"]["operator_chain"]]
+    assert shopping_cart_operators == ["fromFuture", "map"]
 
 
 @pytest.mark.skipif(not os.environ.get(REAL_INDEX_ENV), reason="real index not configured")
@@ -51,7 +69,8 @@ def test_real_index_secondary_reactive_flow_smoke() -> None:
     assert flow["reactor"]["operator_chain"]
     operators = [stage["operator"] for stage in flow["reactor"]["operator_chain"]]
     flow_kinds = [stage["flow_kind"] for stage in flow["reactor"]["operator_chain"]]
-    assert "map" in operators
+    assert flow["reactor"]["publisher_types"] == ["Mono"]
+    assert operators == ["justOrEmpty", "map", "defaultIfEmpty"]
     assert "reactor.operator_applies" in flow_kinds
 
     request_info_injections = [
@@ -74,6 +93,40 @@ def test_real_index_paymentlink_reactive_semantics() -> None:
 
     fixture = store.validate_fixture("paymentlink-reactive-service")
     assert fixture["pass"] is True
+    assert fixture["checks"]["spring_payment_link_service_resolved"] is True
+    assert fixture["checks"]["spring_catalog_shopping_cart_service_resolved"] is True
+    assert fixture["checks"]["spring_banner_service_resolved"] is True
     assert fixture["checks"]["reactor_from_callable"] is True
     assert fixture["checks"]["reactor_do_on_error"] is True
     assert fixture["checks"]["reactor_on_error_map"] is True
+    assert fixture["checks"]["reactor_operator_sequence"] is True
+
+    flow = store.get_mixed_flow(
+        "semanticdb maven . . com/recargapay/bff/app/paymentlink/server/service/BffPaymentLinkServiceImpl#createPaymentLinkFromPaymentApi()."
+    )
+    assert flow["reactor"]["publisher_types"] == ["Mono"]
+    assert [stage["operator"] for stage in flow["reactor"]["operator_chain"]] == [
+        "fromCallable",
+        "doOnError",
+        "onErrorMap",
+    ]
+
+    paymentlink_fields = {
+        field["field"]["display_name"]: field["resolution"]
+        for field in flow["spring"]["field_injections"]
+    }
+    assert paymentlink_fields["paymentLinkService"] == {
+        "match_state": "resolved",
+        "candidate_count": 1,
+        "candidate_bean_names": ["paymentLinkService"],
+    }
+    assert paymentlink_fields["catalogShoppingCartService"] == {
+        "match_state": "resolved",
+        "candidate_count": 1,
+        "candidate_bean_names": ["catalogShoppingCartServiceImpl"],
+    }
+    assert paymentlink_fields["bannerService"] == {
+        "match_state": "resolved",
+        "candidate_count": 1,
+        "candidate_bean_names": ["clientBannerService"],
+    }

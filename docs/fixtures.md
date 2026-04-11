@@ -25,23 +25,33 @@ Fixtures act as stable semantic validation scenarios. They are intended to catch
 
 - controller document is present
 - endpoint mapping is resolved
-- Spring dependencies and injections are resolved
-- Reactor publisher and operator chain are detected
+- Spring detects `shoppingCartService` as an explicitly ambiguous injection with these candidates:
+  - `clientShoppingCartService`
+  - `repositoryShoppingCartService`
+  - `dummyShoppingCartService`
+- Reactor publisher type is `Mono`
+- Reactor operator chain is exactly `fromFuture -> map`
 - Netty runtime boundary is detected
 
 ### `raf-loans-reactive`
 
 - controller document and method symbol are present
 - endpoint mapping is resolved
-- Spring dependencies and injections are resolved
-- Reactor `justOrEmpty`, `map`, and `defaultIfEmpty` are detected
+- Spring resolves `requestInfoService` to `requestInfoServiceImpl`
+- Spring resolves `authorizationService` to `authorizationService`
+- Reactor publisher type is `Mono`
+- Reactor operator chain is exactly `justOrEmpty -> map -> defaultIfEmpty`
 - Netty runtime boundary is detected
 
 ### `paymentlink-reactive-service`
 
 - service document and method symbol are present
-- Spring component and dependency edges are resolved
-- Reactor `fromCallable`, `doOnError`, and `onErrorMap` are detected
+- Spring resolves at least these field injections:
+  - `paymentLinkService` -> `paymentLinkService`
+  - `catalogShoppingCartService` -> `catalogShoppingCartServiceImpl`
+  - `bannerService` -> `clientBannerService`
+- Reactor publisher type is `Mono`
+- Reactor operator chain is exactly `fromCallable -> doOnError -> onErrorMap`
 
 ### `token-login-legacy`
 
